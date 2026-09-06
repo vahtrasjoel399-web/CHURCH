@@ -1,0 +1,1 @@
+ALTER TABLE `room` ADD `published` integer DEFAULT 0 NOT NULL;

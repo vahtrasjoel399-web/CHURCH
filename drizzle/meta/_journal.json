@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1788672138556,
+      "tag": "0000_curved_jasper_sitwell",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1788672391585,
+      "tag": "0001_stormy_human_torch",
+      "breakpoints": true
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+// Local HTTP integration test. No paid API calls; configured keys must be absent.
+import {readFileSync} from 'node:fs';
+import assert from 'node:assert/strict';
+const origin='http://localhost:3000';
+const values=Object.fromEntries(readFileSync('.env','utf8').split('\n').filter(x=>x&&!x.startsWith('#')).map(x=>[x.slice(0,x.indexOf('=')),x.slice(x.indexOf('=')+1)]));
+if(values.OPENAI_API_KEY||values.GEMINI_API_KEY||values.DEEPSEEK_API_KEY)throw new Error('This test requires a local environment without AI keys.');
+let checks=0;const check=(a,b)=>{assert.equal(a,b);checks++;};
+const req=(path,body,cookie)=>fetch(origin+path,{method:body?'POST':'GET',headers:{...(body?{'Content-Type':'application/json',Origin:origin}:{}),...(cookie?{Cookie:cookie}:{})},...(body?{body:JSON.stringify(body)}:{})});
+check((await req('/api/control')).status,401);
+check((await req('/api/auth',{password:'invalid'})).status,401);
+const login=await req('/api/auth',{password:values.OPERATOR_PASSWORD});check(login.status,200);const admin=login.headers.get('set-cookie').split(';')[0];check(login.headers.get('set-cookie').includes('HttpOnly'),true);
+const state=await (await req('/api/control',null,admin)).json();check(state.ready,false);check(state.active,false);check(JSON.stringify(state).includes(values.OPERATOR_PASSWORD),false);
+check((await req('/api/control',{action:'start'},admin)).status,503);
+const saved=await req('/api/control',{action:'settings',settings:{...state.settings,fontSize:60}},admin);check(saved.status,200);check((await (await req('/api/control',null,admin)).json()).settings.fontSize,60);
+const exchange=await req('/api/output',{token:state.viewerToken});check(exchange.status,200);const viewer=exchange.headers.get('set-cookie').split(';')[0];check((await req('/api/control',null,viewer)).status,401);
+const output=await (await req('/api/output',null,viewer)).json();check(output.text,'');check('glossary' in output.settings,false);check('source' in output,false);
+check((await req('/api/control',{action:'screen',rotate:true},admin)).status,200);check((await req('/api/output',null,viewer)).status,403);
+check((await fetch(origin+'/api/control',{method:'POST',headers:{Cookie:admin,'Content-Type':'application/json',Origin:'https://other.invalid'},body:JSON.stringify({action:'stop'})})).status,403);
+check((await req('/api/control',{action:'settings',settings:state.settings},admin)).status,200);
+console.log(`${checks} local HTTP checks passed. No AI request was made.`);
